@@ -1,5 +1,5 @@
 import java.io.*;
-import java.util.Random;
+import java.security.SecureRandom;
 /**
  *
  * @author Sujay and Tejas
@@ -7,8 +7,8 @@ import java.util.Random;
 public class AES 
 {
     private static byte[][] state = new byte[4][4];
-    private static byte[][] keybyte;
-    private static byte[][] inputbyte; 
+    private static byte[][] keybyte = new byte[4][4];
+    private static byte[][] inputbyte = new byte[4][4];
     private static int[] fact = new int[9];
     private static int multfactor = 0;
     private static byte[][] expandedKey = new byte[44][4];  
@@ -22,184 +22,172 @@ public class AES
         int convertedString = 0;
         for(int i=0;i<inputString.length();i++)
         {
-        	char c = inputString.charAt(i);
-        	convertedString = (int) c;
-        	tempString = tempString + Integer.toHexString(convertedString);
+            char c = inputString.charAt(i);
+            convertedString = (int) c;
+            tempString = tempString + Integer.toHexString(convertedString);
         	
         }
         System.out.println(tempString.length());
         int pad;
         int s = tempString.length()*4;
         int c = ((tempString.length()*4)/128);
-        
         int upperbound = (c+1)*128;
         if((upperbound - s)%128 != 0)
         {
-        	pad = (upperbound -s)/8;
-                String a = Integer.toHexString(pad);
-        	for(int i=0;i<pad-1;i++)
-        	{
-                    tempString = tempString + "00";
-        	}
-                tempString += "0";
-                tempString += a;
+            pad = (upperbound -s)/8;
+            String a = Integer.toHexString(pad);
+            for(int i=0;i<pad-1;i++)
+            {
+                tempString = tempString + "00";
+            }
+            tempString += "0";
+            tempString += a;
         }
-       
         //System.out.println(tempString);
         String input = new String();
         int inputlength = tempString.length();
-        Random randomGenerator = new Random();
-        String tString = new String();
-        for(int id=0;id<32;id++)
-        {
-        	int randomInt = randomGenerator.nextInt(16);
-        	tString = tString + Integer.toHexString(randomInt);
-        }
-        String key = tString;
-        System.out.println("Key generated using Random Generator is-----------------------------:");
-        System.out.println(key);
-        for(int z=0;z<=inputlength-32;z+=32)
-        {
-        	String t3 = tempString.substring(z, z+32);
-        	input = t3;
-        
-        	
-        
-        System.out.println("This is the encryption of part: "+ z);
-        inputbyte = toByteArray(input); 
-        System.out.println("The byte representation of the input is :");
-        
-        StringBuffer hexvalue = toHexString(inputbyte);
-        System.out.println("The original hex string is\n"+hexvalue);
-       
+        SecureRandom randomGenerator = new SecureRandom();
+        byte tempk[] = new byte[4];
         for(int i=0;i<4;i++)
         {
-            for(int j=0;j<4;j++)
-            {
-                state[i][j] = 0;
-            }
+         randomGenerator.nextBytes(tempk);
+         for(int j=0;j<4;j++)
+         {
+             keybyte[j][i] = tempk[j];
+         }
         }
-        keybyte = toByteArray(key);
-        keyExpansion(keybyte);
-        exorState(inputbyte,keybyte);
-        System.out.println("--------------------------------------------");
-        System.out.println("The initial exor hex string is\n"+toHexString(state));
-        byte[][] currentKey = new byte[4][4];
-        for(int i=0;i<9;i++)
+        System.out.println("Key generated using Random Generator is : "+toHexString(keybyte));
+        for(int z=0;z<=inputlength-32;z+=32)
         {
-            System.out.println("This is round number "+i);
+            String t3 = tempString.substring(z, z+32);
+            input = t3;
+            System.out.println("This is the encryption of part: "+ z);
+            inputbyte = toByteArray(input); 
+            StringBuffer hexvalue = toHexString(inputbyte);
+            System.out.println("The original hex string of the input is\n"+hexvalue);
+
+            for(int i=0;i<4;i++)
+            {
+                for(int j=0;j<4;j++)
+                {
+                    state[i][j] = 0;
+                }
+            }
+            keyExpansion(keybyte);
+            exorState(inputbyte,keybyte);
+            System.out.println("--------------------------------------------");
+            System.out.println("The initial exor hex string is\n"+toHexString(state));
+            byte[][] currentKey = new byte[4][4];
+            for(int i=0;i<9;i++)
+            {
+                System.out.println("This is round number "+i);
+                for(int j=0;j<4;j++)
+                {
+                    for(int k=0;k<4;k++)
+                    {
+                        byte t = sBox(state[j][k]);
+                        state[j][k] = t;
+                    }
+                }
+                System.out.println("The hex string after SBox is "+toHexString(state));
+                shiftRows();
+                System.out.println("The hex string after shift rows is "+toHexString(state));
+                byte[] temp = new byte[4];
+                for(int j=0;j<4;j++)
+                {
+                    for(int k=0;k<4;k++)
+                    {
+                        temp[k] = state[k][j];
+                    }
+                    byte[] temp1 = mixColumns(temp);
+                    for(int k=0;k<4;k++)
+                    {
+                        state[k][j] = temp1[k] ;
+                    }
+                }
+                System.out.println("The hex string after mixColumns is "+toHexString(state));
+                int l=0;
+                for(int j=(i+1)*4;j<((i+1)*4)+4;j++)
+                {
+                    for(int k=0;k<4;k++)
+                    {
+                        currentKey[k][l] = expandedKey[j][k];
+                    }
+                    l++;
+                }
+                System.out.println("The hex string of currentKey is "+toHexString(currentKey));
+                exorState(state,currentKey);
+                System.out.println("The hex string after AddRoundKey is "+toHexString(state));
+                System.out.println("The "+i+" round hex string is\n"+toHexString(state));
+                /////
+            }
+            System.out.println("This is last round");
             for(int j=0;j<4;j++)
             {
                 for(int k=0;k<4;k++)
                 {
-                    byte t = sBox(state[j][k]);
-                    state[j][k] = t;
+                    state[j][k] = sBox(state[j][k]);
                 }
             }
-            System.out.println("The hex string after SBox is "+toHexString(state));
             shiftRows();
-            System.out.println("The hex string after shift rows is "+toHexString(state));
-            byte[] temp = new byte[4];
-            for(int j=0;j<4;j++)
-            {
-                for(int k=0;k<4;k++)
-                {
-                    temp[k] = state[k][j];
-                }
-                byte[] temp1 = mixColumns(temp);
-                for(int k=0;k<4;k++)
-                {
-                    state[k][j] = temp1[k] ;
-                }
-            }
-            System.out.println("The hex string after mixColumns is "+toHexString(state));
             int l=0;
-            for(int j=(i+1)*4;j<((i+1)*4)+4;j++)
+            for(int i=40;i<44;i++)
             {
                 for(int k=0;k<4;k++)
                 {
-                    currentKey[k][l] = expandedKey[j][k];
+                    currentKey[k][l] = expandedKey[i][k];
                 }
                 l++;
             }
-            System.out.println("The hex string of currentKey is "+toHexString(currentKey));
             exorState(state,currentKey);
-            System.out.println("The hex string after AddRoundKey is "+toHexString(state));
-            System.out.println("The "+i+" round hex string is\n"+toHexString(state));
+            System.out.println("The final round hex string is\n"+toHexString(state));
+            encryptedString += toHexString(state);
         }
-        System.out.println("This is last round");
-        for(int j=0;j<4;j++)
-        {
-            for(int k=0;k<4;k++)
-            {
-                state[j][k] = sBox(state[j][k]);
-            }
-        }
-        shiftRows();
-        int l=0;
-        for(int i=40;i<44;i++)
-        {
-            for(int k=0;k<4;k++)
-            {
-                currentKey[k][l] = expandedKey[i][k];
-            }
-            l++;
-        }
-        exorState(state,currentKey);
-        System.out.println("The final round hex string is\n"+toHexString(state));
-        encryptedString += toHexString(state);
-    }
         System.out.println("This encrypted text for the input is:  " + encryptedString);
         System.out.println("This is the start of decryption");
         System.out.println("--------------------------------------");
-        
         String decryptedString = new String();
         for(int z=0;z<=inputlength-32;z+=32)
         {
-        	String t3 = encryptedString.substring(z, z+32);
-        	input = t3;
-        
-        	
-        
-        System.out.println("This is the decryption of part: "+z);
-        inputbyte = toByteArray(input); 
-        System.out.println("The byte representation of the input is :");
-        displayByte(inputbyte);
-        
-        StringBuffer hexvalue = toHexString(inputbyte);
-        System.out.println("The decryption original hex string is\n"+hexvalue);
-       
-        for(int i=0;i<4;i++)
-        {
-            for(int j=0;j<4;j++)
+            String t3 = encryptedString.substring(z, z+32);
+            input = t3;
+            System.out.println("This is the decryption of part: "+z);
+            inputbyte = toByteArray(input); 
+            System.out.println("The byte representation of the input is :");
+            displayByte(inputbyte);
+            StringBuffer hexvalue = toHexString(inputbyte);
+            System.out.println("The decryption original hex string is\n"+hexvalue);
+            for(int i=0;i<4;i++)
             {
-                state[i][j] = 0;
+                for(int j=0;j<4;j++)
+                {
+                    state[i][j] = 0;
+                }
             }
-        }
-        byte[][] currentKey = new byte[4][4];
-        int l=0;
-        for(int i=40;i<44;i++)
-        {
-            for(int k=0;k<4;k++)
-            {
-                currentKey[k][l] = expandedKey[i][k];
-            }
-            l++;
-        }
-        exorState(inputbyte,currentKey);
-        System.out.println("--------------------------------------------");
-        System.out.println("The initial decryption exor hex string is\n"+toHexString(state));
-        for(int i=9;i>0;i--)
-        {
-            System.out.println("This is decryption round number "+i);
-            for(int j=0;j<4;j++)
+            byte[][] currentKey = new byte[4][4];
+            int l=0;
+            for(int i=40;i<44;i++)
             {
                 for(int k=0;k<4;k++)
                 {
-                    byte t = invSBox(state[j][k]);
-                    state[j][k] = t;
+                    currentKey[k][l] = expandedKey[i][k];
                 }
+                l++;
             }
+            exorState(inputbyte,currentKey);
+            System.out.println("--------------------------------------------");
+            System.out.println("The initial decryption exor hex string is\n"+toHexString(state));
+            for(int i=9;i>0;i--)
+            {
+                System.out.println("This is decryption round number "+i);
+                for(int j=0;j<4;j++)
+                {
+                    for(int k=0;k<4;k++)
+                    {
+                        byte t = invSBox(state[j][k]);
+                        state[j][k] = t;
+                    }
+                }
             System.out.println("The hex string after Inverse SBox is "+toHexString(state));
             invShiftRows();
             System.out.println("The hex string after Inverse Shift rows is "+toHexString(state));
@@ -230,28 +218,28 @@ public class AES
             }
             System.out.println("The hex string after Inverse mixColumns is "+toHexString(state));
             System.out.println("The "+i+" round hex string is\n"+toHexString(state));
-        }
-        System.out.println("This is decryption last round");
-        for(int j=0;j<4;j++)
-        {
-            for(int k=0;k<4;k++)
-            {
-                state[j][k] = invSBox(state[j][k]);
             }
-        }
-        invShiftRows();
-        l=0;
-        for(int i=0;i<4;i++)
-        {
-            for(int k=0;k<4;k++)
+            System.out.println("This is decryption last round");
+            for(int j=0;j<4;j++)
             {
-                currentKey[k][l] = expandedKey[i][k];
+                for(int k=0;k<4;k++)
+                {
+                    state[j][k] = invSBox(state[j][k]);
+                }
             }
-            l++;
-        }
-        exorState(state,currentKey);
-        System.out.println("The final round decrypted hex string is\n"+toHexString(state));
-        decryptedString += toHexString(state);
+            invShiftRows();
+            l=0;
+            for(int i=0;i<4;i++)
+            {
+                for(int k=0;k<4;k++)
+                {
+                    currentKey[k][l] = expandedKey[i][k];
+                }
+                l++;
+            }
+            exorState(state,currentKey);
+            System.out.println("The final round decrypted hex string is\n"+toHexString(state));
+            decryptedString += toHexString(state);
         }
         System.out.println("This decrypted hex string for the input is:  " + decryptedString);
         System.out.println("Checking for Padding...");
@@ -339,7 +327,7 @@ public class AES
         System.out.println("The decrypted string after removing padding bits is "+finalnew);
     }
   
-	public static void keyExpansion(byte[][] keybyte)
+    public static void keyExpansion(byte[][] keybyte)
     {
     	byte[] Rcon = new byte[4];
     	int ctr = 1;
@@ -352,80 +340,79 @@ public class AES
     	}
     	for(int i=4;i<44;i++)
     	{
-    		if((i%4) != 0)
-    		{
-    			for(int j=0;j<4;j++)
-    			{
-    				expandedKey[i][j] = (byte) (expandedKey[i-1][j] ^ expandedKey[i-4][j]);
-    			}
-    		}
-                else
-    		{
-                        int[] xorconstant = {0,0,0,1,1,0,1,1};
-                        int[] element = decToBin(ctr);
-                        int[] ele1 = new int[8];
-                        int[] arr = new int[8];
-                        int flag = 0;
-                        
-                        Rcon[0] = (byte)ctr;
-                        Rcon[1] = (byte)0;
-    			Rcon[2] = (byte)0;
-    			Rcon[3] = (byte)0;
-    			byte[] temp = new byte[4];
-                        for(int j=0;j<4;j++)
-                        {
-                            temp[j] = 0;
-                        }
-                        for(int j=0;j<4;j++)
-                        {
-                            temp[j] = expandedKey[i-1][j];
-                        }
-    			for(int j=0;j<4;j++)
-    			{
-    				expandedKey[i][j] = temp[(j+1)%4];
-    			}
-                        for(int j=0;j<4;j++)
-                        {
-                            expandedKey[i][j] = sBox(expandedKey[i][j]);
-                        }
-                        for(int j=0;j<4;j++)
-                        {
-                            expandedKey[i][j] = (byte) (expandedKey[i][j] ^ Rcon[j]);
-                        }
+            if((i%4) != 0)
+            {
+                    for(int j=0;j<4;j++)
+                    {
+                            expandedKey[i][j] = (byte) (expandedKey[i-1][j] ^ expandedKey[i-4][j]);
+                    }
+            }
+            else
+            {
+                    int[] xorconstant = {0,0,0,1,1,0,1,1};
+                    int[] element = decToBin(ctr);
+                    int[] ele1 = new int[8];
+                    int[] arr = new int[8];
+                    int flag = 0;
+
+                    Rcon[0] = (byte)ctr;
+                    Rcon[1] = (byte)0;
+                    Rcon[2] = (byte)0;
+                    Rcon[3] = (byte)0;
+                    byte[] temp = new byte[4];
+                    for(int j=0;j<4;j++)
+                    {
+                        temp[j] = 0;
+                    }
+                    for(int j=0;j<4;j++)
+                    {
+                        temp[j] = expandedKey[i-1][j];
+                    }
+                    for(int j=0;j<4;j++)
+                    {
+                            expandedKey[i][j] = temp[(j+1)%4];
+                    }
+                    for(int j=0;j<4;j++)
+                    {
+                        expandedKey[i][j] = sBox(expandedKey[i][j]);
+                    }
+                    for(int j=0;j<4;j++)
+                    {
+                        expandedKey[i][j] = (byte) (expandedKey[i][j] ^ Rcon[j]);
+                    }
+                    for(int j=0;j<8;j++)
+                    { 
+                        ele1[j] = element[j+1];
+                        arr[j] = element[j+1];
+                    }
+                    if(ele1[0] == 1)
+                    {
+                        flag = 1;
+                    }
+                    for(int j=0;j<7;j++)
+                    {
+                        ele1[j] = arr[(j+1)];
+                    }
+                    ele1[7] = 0;
+                    if(flag == 1)
+                    {
                         for(int j=0;j<8;j++)
-                        { 
-                            ele1[j] = element[j+1];
-                            arr[j] = element[j+1];
-                        }
-                        if(ele1[0] == 1)
                         {
-                            flag = 1;
+                            ele1[j] = ele1[j] ^ xorconstant[j];
                         }
-                        for(int j=0;j<7;j++)
-                        {
-                            ele1[j] = arr[(j+1)];
-                        }
-                        ele1[7] = 0;
-                        if(flag == 1)
-                        {
-                            for(int j=0;j<8;j++)
-                            {
-                                ele1[j] = ele1[j] ^ xorconstant[j];
-                            }
-                        }
-                        for(int j=1;j<9;j++)
-                        {
-                            element[j] = ele1[j-1];
-                        }
-                        element[0] = 0;
-                        byte s = decToByte(element);
-                        ctr = s & 0xFF;
-                        for(int j=0;j<4;j++)
-    			{
-    				expandedKey[i][j] = (byte) (expandedKey[i][j] ^ expandedKey[i-4][j]);
-    			}
-    		}
-                
+                    }
+                    for(int j=1;j<9;j++)
+                    {
+                        element[j] = ele1[j-1];
+                    }
+                    element[0] = 0;
+                    byte s = decToByte(element);
+                    ctr = s & 0xFF;
+                    for(int j=0;j<4;j++)
+                    {
+                            expandedKey[i][j] = (byte) (expandedKey[i][j] ^ expandedKey[i-4][j]);
+                    }
+            }     
     	}
     }
     
@@ -655,97 +642,97 @@ public class AES
         {
             arr[i] = ele1[i];
         }
-     if(ele1[0] == 1)
-     {
-        flag = 1;
-     }
-     for(int j=0;j<7;j++)
-     {
-        ele1[j] = arr[(j+1)];
-     }
-     ele1[7] = 0;
-     if(flag == 1)
-     {
-        for(int j=0;j<8;j++)
+        if(ele1[0] == 1)
         {
-            ele1[j] = ele1[j] ^ xorconstant[j];
+           flag = 1;
         }
-     }
-     return ele1;
+        for(int j=0;j<7;j++)
+        {
+           ele1[j] = arr[(j+1)];
+        }
+        ele1[7] = 0;
+        if(flag == 1)
+        {
+           for(int j=0;j<8;j++)
+           {
+               ele1[j] = ele1[j] ^ xorconstant[j];
+           }
+        }
+        return ele1;
     }
     public static byte mixColumnsMult(byte m1, byte m2)
     {
-            int[] element = new int[9];
-            int[] arr = new int[8];
-            int[] ele1 = new int[8];
-            int multiplier = m1 & 0xFF;
-            int multiplicand  = m2 & 0xFF;
-            element = decToBin(multiplicand);
-            for(int m=0;m<8;m++)
+        int[] element = new int[9];
+        int[] arr = new int[8];
+        int[] ele1 = new int[8];
+        int multiplier = m1 & 0xFF;
+        int multiplicand  = m2 & 0xFF;
+        element = decToBin(multiplicand);
+        for(int m=0;m<8;m++)
+        {
+            ele1[m] = element[m+1];
+            arr[m] = element[m+1];
+        }
+        if(multiplier == 14)
+        {
+            ele1 = mixMultBy2(ele1);
+            for(int j=0;j<8;j++)
             {
-                ele1[m] = element[m+1];
-                arr[m] = element[m+1];
+                ele1[j] = ele1[j] ^ arr[j];
             }
-            if(multiplier == 14)
+            ele1 = mixMultBy2(ele1);
+            for(int j=0;j<8;j++)
             {
-                ele1 = mixMultBy2(ele1);
-                for(int j=0;j<8;j++)
-                {
-                    ele1[j] = ele1[j] ^ arr[j];
-                }
-                ele1 = mixMultBy2(ele1);
-                for(int j=0;j<8;j++)
-                {
-                    ele1[j] = ele1[j] ^ arr[j];
-                }
-                ele1 = mixMultBy2(ele1);
+                ele1[j] = ele1[j] ^ arr[j];
             }
-            else if(multiplier == 11)
+            ele1 = mixMultBy2(ele1);
+        }
+        else if(multiplier == 11)
+        {
+            ele1 = mixMultBy2(ele1);
+            ele1 = mixMultBy2(ele1);
+            for(int j=0;j<8;j++)
             {
-                ele1 = mixMultBy2(ele1);
-                ele1 = mixMultBy2(ele1);
-                for(int j=0;j<8;j++)
-                {
-                    ele1[j] = ele1[j] ^ arr[j];
-                }
-                ele1 = mixMultBy2(ele1);
-                for(int j=0;j<8;j++)
-                {
-                    ele1[j] = ele1[j] ^ arr[j];
-                }
+                ele1[j] = ele1[j] ^ arr[j];
             }
-            else if(multiplier == 9)
+            ele1 = mixMultBy2(ele1);
+            for(int j=0;j<8;j++)
             {
-                ele1 = mixMultBy2(ele1);
-                ele1 = mixMultBy2(ele1);
-                ele1 = mixMultBy2(ele1);
-                for(int j=0;j<8;j++)
-                {
-                    ele1[j] = ele1[j] ^ arr[j];
-                }
+                ele1[j] = ele1[j] ^ arr[j];
             }
-            else if(multiplier == 13)
+        }
+        else if(multiplier == 9)
+        {
+            ele1 = mixMultBy2(ele1);
+            ele1 = mixMultBy2(ele1);
+            ele1 = mixMultBy2(ele1);
+            for(int j=0;j<8;j++)
             {
-                ele1 = mixMultBy2(ele1);
-                for(int j=0;j<8;j++)
-                {
-                    ele1[j] = ele1[j] ^ arr[j];
-                }
-                ele1 = mixMultBy2(ele1);
-                ele1 = mixMultBy2(ele1);
-                for(int j=0;j<8;j++)
-                {
-                    ele1[j] = ele1[j] ^ arr[j];
-                }
+                ele1[j] = ele1[j] ^ arr[j];
             }
-            for(int i=0;i<8;i++)
+        }
+        else if(multiplier == 13)
+        {
+            ele1 = mixMultBy2(ele1);
+            for(int j=0;j<8;j++)
             {
-                element[i+1] = ele1[i];
+                ele1[j] = ele1[j] ^ arr[j];
             }
-            element[0] = 0;
-            byte temp = decToByte(element);
-            return temp;
-}
+            ele1 = mixMultBy2(ele1);
+            ele1 = mixMultBy2(ele1);
+            for(int j=0;j<8;j++)
+            {
+                ele1[j] = ele1[j] ^ arr[j];
+            }
+        }
+        for(int i=0;i<8;i++)
+        {
+            element[i+1] = ele1[i];
+        }
+        element[0] = 0;
+        byte temp = decToByte(element);
+        return temp;
+    }
     /*private static byte sBox(byte val) {
 		// TODO Auto-generated method stub
                   
@@ -775,25 +762,18 @@ public class AES
 		return sboxresult;
 	}
     */
-    
-    
-    
     public static byte sBox(byte val)
     {
     	byte temp = multInv(val);
-        //System.out.println("The multiplicative inverse is "+temp);
         byte value = affineTransform(temp);
-        //System.out.println("The affine transformation is "+value);
         return value;    	
     }
-    
-    
-    private static byte invSBox(byte b) {
-  		// TODO Auto-generated method stub
+    private static byte invSBox(byte b)
+    {
       	byte t = invAffineTransform(b);
       	byte t1 = multInv(t);
-  		return t1;
-  	}
+        return t1;
+    }
     public static byte affineTransform(byte a)
     {
     	int val = a & 0xFF;
@@ -808,18 +788,11 @@ public class AES
                             {1},
                             {1},
                             {0}};
-    	//System.out.println("Print the constant array");
-    	//for(int i=0;i<8;i++)
-    	//{
-    		//System.out.println(constant[i][0]);
-    	//}
     	int[][] result = new int[8][1];
-    	//System.out.println("Result of A*x+b is:");
     	for(int i=0;i<8;i++)
     	{
     		
     		result[i][0] = constant[i][0] ^ t1[i][0]; 
-    		//System.out.println(result[i][0]);
     	}
         int[] t2 = new int[9];
     	for(int i=0;i<8;i++)
@@ -828,7 +801,6 @@ public class AES
         }
         t2[0] = 0;
     	byte t3 = decToByte(t2);
-        //System.out.println("The affine transform is "+t3);
         return t3;
     }
     
@@ -846,18 +818,11 @@ public class AES
                             {0},
                             {0},
                             {0}};
-    	//System.out.println("Print the constant array");
-    	//for(int i=0;i<8;i++)
-    	//{
-    		//System.out.println(constant[i][0]);
-    	//}
     	int[][] result = new int[8][1];
-    	//System.out.println("Result of A*x+b is:");
     	for(int i=0;i<8;i++)
     	{
     		
-    		result[i][0] = constant[i][0] ^ t1[i][0]; 
-    		//System.out.println(result[i][0]);
+    		result[i][0] = constant[i][0] ^ t1[i][0];
     	}
         int[] t2 = new int[9];
     	for(int i=0;i<8;i++)
@@ -866,14 +831,11 @@ public class AES
         }
         t2[0] = 0;
     	byte t3 = decToByte(t2);
-        //System.out.println("The affine transform is "+t3);
         return t3;
     }
     
-    
-    
-    private static int[][] invMatrixMul(int[][] x) {
-		// TODO Auto-generated method stub
+    private static int[][] invMatrixMul(int[][] x)
+    {
     	int[][] tempproduct = new int[8][8];
     	int[][] product = new int[8][1];
         for(int i=0;i<8;i++)
@@ -881,36 +843,28 @@ public class AES
             product[i][0] = 0;
         }
     	int[][] A = {{0,0,1,0,0,1,0,1},
-    				 {1,0,0,1,0,0,1,0},
-    				 {0,1,0,0,1,0,0,1},
-    				 {1,0,1,0,0,1,0,0},
-    				 {0,1,0,1,0,0,1,0},
-    				 {0,0,1,0,1,0,0,1},
-    				 {1,0,0,1,0,1,0,0},
-    				 {0,1,0,0,1,0,1,0}};
-    	//System.out.println("Into the Matrix multiplication code");
+                     {1,0,0,1,0,0,1,0},
+                     {0,1,0,0,1,0,0,1},
+                     {1,0,1,0,0,1,0,0},
+                     {0,1,0,1,0,0,1,0},
+                     {0,0,1,0,1,0,0,1},
+                     {1,0,0,1,0,1,0,0},
+                     {0,1,0,0,1,0,1,0}};
     	for(int i=0;i<8;i++)
     	{
-    			//System.out.println("Inside the inner for loop");
-    			for (int k=0;k<8;k++)
-                        {
-    				tempproduct[i][k] = (A[i][k] * x[8-k][0]);
-                                //System.out.println(tempproduct[i][k]);
-    			}
-                        for(int k=0;k<8;k++)
-                        {
-                            product[i][0] = product[i][0] ^ tempproduct[i][k];
-                        }
-                        //System.out.println("The product is "+product[i][0]);
+            for (int k=0;k<8;k++)
+            {
+                    tempproduct[i][k] = (A[i][k] * x[8-k][0]);
+            }
+            for(int k=0;k<8;k++)
+            {
+                product[i][0] = product[i][0] ^ tempproduct[i][k];
+            }
     	}
-    	for(int i=0;i<8;i++)
-    	{
-    		//System.out.println("Printing the product of matrix multiplication");
-    		//System.out.println(product[i][0]);
-    	}
-		return product;
-	}
-	public static int[][] matrixMul(int[][] x)
+        return product;
+    }
+    
+    public static int[][] matrixMul(int[][] x)
     {
         int[][] tempproduct = new int[8][8];
     	int[][] product = new int[8][1];
@@ -919,48 +873,35 @@ public class AES
             product[i][0] = 0;
         }
     	int[][] A = {{1,0,0,0,1,1,1,1},
-    				 {1,1,0,0,0,1,1,1},
-    				 {1,1,1,0,0,0,1,1},
-    				 {1,1,1,1,0,0,0,1},
-    				 {1,1,1,1,1,0,0,0},
-    				 {0,1,1,1,1,1,0,0},
-    				 {0,0,1,1,1,1,1,0},
-    				 {0,0,0,1,1,1,1,1}};
-    	//System.out.println("Into the Matrix multiplication code");
+                     {1,1,0,0,0,1,1,1},
+                     {1,1,1,0,0,0,1,1},
+                     {1,1,1,1,0,0,0,1},
+                     {1,1,1,1,1,0,0,0},
+                     {0,1,1,1,1,1,0,0},
+                     {0,0,1,1,1,1,1,0},
+                     {0,0,0,1,1,1,1,1}};
     	for(int i=0;i<8;i++)
     	{
-    			//System.out.println("Inside the inner for loop");
-    			for (int k=0;k<8;k++)
-                        {
-    				tempproduct[i][k] = (A[i][k] * x[8-k][0]);
-                                //System.out.println(tempproduct[i][k]);
-    			}
-                        for(int k=0;k<8;k++)
-                        {
-                            product[i][0] = product[i][0] ^ tempproduct[i][k];
-                        }
-                        //System.out.println("The product is "+product[i][0]);
+            for (int k=0;k<8;k++)
+            {
+                tempproduct[i][k] = (A[i][k] * x[8-k][0]);
+            }
+            for(int k=0;k<8;k++)
+            {
+                product[i][0] = product[i][0] ^ tempproduct[i][k];
+            }
     	}
-    	for(int i=0;i<8;i++)
-    	{
-    		//System.out.println("Printing the product of matrix multiplication");
-    		//System.out.println(product[i][0]);
-    	}
-		return product;
-    	
+	return product;
     }
     public static int[][] arrayTranspose(int[] b)
     {
     	
     	int a[][] = new int [9][1];
-        //System.out.println("The transposed array is");
     	for(int i=0;i<9;i++)
     	{
-    		a[i][0] = b[i];
-                //System.out.println(a[i][0]);
+            a[i][0] = b[i];
     	}
-		return a;
-    	
+	return a;	
     }
     public static StringBuffer toHexString(byte[][] array)
     {
@@ -975,8 +916,9 @@ public class AES
                 hexstring.append(hexarray[v & 0x0F]);                
             }
         }
-    return hexstring;
+        return hexstring;
     }
+    
     public static byte[][] toByteArray(String s)
     {
         int len = s.length();
@@ -994,19 +936,21 @@ public class AES
                 }
             }
         }
-    return data;
+        return data;
     }
+    
     public static void displayByte(byte[][] inputbyte)
     {
         for(int i=0;i<4;i++)
         {
             for(int j=0;j<4;j++)
             {
-                 System.out.print(inputbyte[i][j]+" ");
+                System.out.print(inputbyte[i][j]+" ");
             }
             System.out.println();
         }
     }
+    
     public static void exorState(byte[][] array1, byte[][] array2)
     {
         for(int i=0;i<4;i++)
@@ -1019,35 +963,37 @@ public class AES
             }
         }
     }
+    
     public static void shiftRows()
     {
         for(int i=0;i<4;i++)
         {
             for(int j=0;j<i;j++)
             {
-                    byte temp1 = state[i][3];
-                    state[i][3] = state[i][0];
-                    byte temp2 = state[i][2];
-                    state[i][2] = temp1;
-                    temp1 = state[i][1];
-                    state[i][1] = temp2;
-                    state[i][0] = temp1;               
+                byte temp1 = state[i][3];
+                state[i][3] = state[i][0];
+                byte temp2 = state[i][2];
+                state[i][2] = temp1;
+                temp1 = state[i][1];
+                state[i][1] = temp2;
+                state[i][0] = temp1;               
             }
         }
     }
+    
     public static void invShiftRows()
     {
         for(int i=0;i<4;i++)
         {
             for(int j=0;j<i;j++)
             {
-                    byte temp1 = state[i][0];
-                    state[i][0] = state[i][3];
-                    byte temp2 = state[i][1];
-                    state[i][1] = temp1;
-                    byte temp3 = state[i][2];
-                    state[i][2] = temp2;
-                    state[i][3] = temp3;               
+                byte temp1 = state[i][0];
+                state[i][0] = state[i][3];
+                byte temp2 = state[i][1];
+                state[i][1] = temp1;
+                byte temp3 = state[i][2];
+                state[i][2] = temp2;
+                state[i][3] = temp3;               
             }
         }
     }
@@ -1066,7 +1012,6 @@ public class AES
             {
                 remainder[i][j] = 1;
                 quotient[i][j] = 0;
-                
             }
             fact[i] = 0;
         }
@@ -1123,209 +1068,137 @@ public class AES
     	while(true)
     	{
             lastvalue = 0;
-                for(int i=0;i<9;i++)
+            for(int i=0;i<9;i++)
+            {
+                fact[i] = 0;
+            }
+            n = n+1;
+            for(int l=0;l<9;l++)
+            {
+                 a[l]= remainder[n-2][l];
+            }
+            int temp1[] = new int[9];
+            for(int i=0;i<9;i++)
+            {
+                temp1[i] = remainder[n-1][i];
+            }
+            int[] temporary = polyDiv(temp1, a);
+            for(int i=0;i<9;i++)
+            {
+                remainder[n][i] = temporary[i];
+            }
+            temp1 = fact;
+            for(int i=0;i<9;i++)
+            {
+                quotient[n][i] = temp1[i];
+            }
+            for(int l=0;l<9;l++)
+            {
+                if(l==8)
                 {
-                    fact[i] = 0;
+                    if(quotient[n][l] == 1)
+                        lastvalue = 1;
                 }
-                n = n+1;
-                for(int l=0;l<9;l++)
+            }
+            if(remainder[n][8] == 1)
+            {
+                quotient[n][8] = 1;
+            }    
+            int[][] auxsum = new int[9][9];
+            for(int g=0;g<9;g++)
+            {
+                for(int h=0;h<9;h++)
                 {
-                     a[l]= remainder[n-2][l];
+                    auxsum[g][h] = 0;
                 }
-                /*System.out.println("The remainder n-1 is ");
-                for(int l=0;l<temp.length;l++)
+            }
+            int auxcounter = 0;
+            for(int m=0;m<8;m++)
+            {
+                if(quotient[n][m] == 1)
                 {
-                    System.out.print(remainder[n-1][l]);
-                }
-                System.out.println();
-                System.out.println("The value of remainder n-2 is ");
-                for(int l=0;l<a.length;l++)
-                {
-                    System.out.print(remainder[n-2][l]);
-                }
-                System.out.println();*/
-                int temp1[] = new int[9];
-                for(int i=0;i<9;i++)
-                {
-                    temp1[i] = remainder[n-1][i];
-                }
-                int[] temporary = polyDiv(temp1, a);
-                for(int i=0;i<9;i++)
-                {
-                    remainder[n][i] = temporary[i];
-                }
-                /*System.out.println("The remainder n is ");
-                for(int l=0;l<9;l++)
-                {
-                    System.out.print(remainder[n][l]);
-                }
-                System.out.println();
-                 System.out.println("The remainder n-1 is ");
-                for(int l=0;l<9;l++)
-                {
-                    System.out.print(remainder[n-1][l]);
-                }
-                System.out.println(); System.out.println("The remainder n-2 is ");
-                for(int l=0;l<9;l++)
-                {
-                    System.out.print(remainder[n-2][l]);
-                }
-                System.out.println();*/
-                temp1 = fact;
-                for(int i=0;i<9;i++)
-                {
-                    quotient[n][i] = temp1[i];
-                }
-                //System.out.println("The quotient is ");
-                for(int l=0;l<9;l++)
-                {
-                    //System.out.print(quotient[n][l]);
-                    if(l==8)
+                    multfactor = 8- m;
+                    for(int k=0;k<9;k++)     
                     {
-                        if(quotient[n][l] == 1)
-                            lastvalue = 1;
-                    }
-                }
-                //System.out.println();
-                if(remainder[n][8] == 1)
-                    quotient[n][8] = 1;
-                int[][] auxsum = new int[9][9];
-                for(int g=0;g<9;g++)
-                {
-                    for(int h=0;h<9;h++)
-                    {
-                        auxsum[g][h] = 0;
-                    }
-                }
-                int auxcounter = 0;
-                /*System.out.println("The aux n-1 is ");
-                for(int l=0;l<9;l++)
-                {
-                    System.out.print(aux[n-1][l]);
-                }
-                System.out.println(); 
-                System.out.println("The aux n-2 is ");
-                for(int l=0;l<9;l++)
-                {
-                    System.out.print(aux[n-2][l]);
-                }
-                System.out.println();*/
-                for(int m=0;m<8;m++)
-                {
-                    if(quotient[n][m] == 1)
-                    {
-                        multfactor = 8- m;
-                        //System.out.println("The value of multfactor is now "+multfactor);
-                        for(int k=0;k<9;k++)     
-                    		{
-                        		if(aux[n-1][k] == 1)
-                        			{
-                        				if(multfactor>0)
-                        					{
-                        						auxsum[auxcounter][k-multfactor] = 1;
-                        							//System.out.println("The value has been set to 1");
-                        							//System.out.println(auxsum[auxcounter][k-multfactor] +" "+k);
-                        					}
-                        			}
-                        
-                    		}
-                    auxcounter++;
-                    }	
-                }
-                if(lastvalue == 1)
-                {
-                    for(int k=0;k<9;k++)
-                    {
-                        auxsum[auxcounter][k] = aux[n-1][k];
-                    }
-                    auxcounter++;
-                }
-                /*System.out.println("The value of auxsum [m] is ");
-                for(int l=0;l<auxcounter;l++)
-                {
-                    for(int m=0;m<9;m++)
-                        System.out.print(auxsum[l][m]);
-                    System.out.println();
-                }
-                System.out.println();*/
-                int[] finalauxsum = new int[9];
-                for(int g=0;g<9;g++)
-                {
-                    finalauxsum[g] = 0;
-                }
-                int tempsum[] = new int[9];
-                for(int m=0;m<auxcounter;m+=2)
-                {
-                    for(int p=0;p<9;p++)
-                    {
-                        tempsum[p] = auxsum[m][p] ^ auxsum[m+1][p]; 
-                    }
-                       /*System.out.println("The sum of m and m+1 is ");
-                       for(int l=0;l<aux[n-1].length;l++)
+                        if(aux[n-1][k] == 1)
                         {
-                            System.out.print(tempsum[l]);
+                            if(multfactor>0)
+                            {
+                                auxsum[auxcounter][k-multfactor] = 1;
+                            }
                         }
-                       System.out.println();*/
-                       int[] tempsum1 = new int[9];
-                       for(int p=0;p<9;p++)
-                    {
-                        tempsum1[p] = finalauxsum[p] ^ tempsum[p]; 
                     }
-                       for(int g=0;g<9;g++)
-                       {
-                           finalauxsum[g] = tempsum1[g];
-                       }
-                }
-                /*System.out.println("The value of aux n-1 * quotient is ");
-                for(int l=0;l<aux[n-1].length;l++)
+                    auxcounter++;
+                }	
+            }
+            if(lastvalue == 1)
+            {
+                for(int k=0;k<9;k++)
                 {
-                    System.out.print(finalauxsum[l]);
+                    auxsum[auxcounter][k] = aux[n-1][k];
                 }
-                System.out.println();*/
+                auxcounter++;
+            }
+            int[] finalauxsum = new int[9];
+            for(int g=0;g<9;g++)
+            {
+                finalauxsum[g] = 0;
+            }
+            int tempsum[] = new int[9];
+            for(int m=0;m<auxcounter;m+=2)
+            {
                 for(int p=0;p<9;p++)
-                    {
-                        aux[n][p] = aux[n-2][p] ^ finalauxsum[p]; 
-                    }
-                /*System.out.println("The value of aux n is ");
-                for(int l=0;l<aux[n].length;l++)
                 {
-                    System.out.print(aux[n][l]);
+                    tempsum[p] = auxsum[m][p] ^ auxsum[m+1][p]; 
                 }
-                System.out.println();*/
-                flag = 1;
-                for(int i=0;i<8;i++)
+                int[] tempsum1 = new int[9];
+                for(int p=0;p<9;p++)
                 {
-    			if(remainder[n][i] == 1)
-    			{
-                    //System.out.println("The remainder is not 1 so continute");
-    				flag = 0;
-    				break;
-    			}
+                    tempsum1[p] = finalauxsum[p] ^ tempsum[p]; 
                 }
-    		if(flag == 1)
-    		{
-    			break;
-    		}
+                for(int g=0;g<9;g++)
+                {
+                    finalauxsum[g] = tempsum1[g];
+                }
+            }
+            for(int p=0;p<9;p++)
+            {
+                aux[n][p] = aux[n-2][p] ^ finalauxsum[p]; 
+            }
+            flag = 1;
+            for(int i=0;i<8;i++)
+            {
+                if(remainder[n][i] == 1)
+                {
+                    flag = 0;
+                    break;
+                }
+            }
+            if(flag == 1)
+            {
+                break;
+            }
     	}
     	byte inv = decToByte(aux[n]);
     	return inv;
         }
     }
+    
     public static byte decToByte(int[] a)
     {
     	double val;
     	double sum = 0;
     	for(int i=0;i<9;i++)
     	{
-    		if(a[i] == 1)
-    		{
-    			val = Math.pow((double)2, (double)(8-i));
-    			sum+=val;
-    		}
+            if(a[i] == 1)
+            {
+                val = Math.pow((double)2, (double)(8-i));
+                sum+=val;
+            }
     	}
-        //System.out.println("The value of the decToByte is"+sum);
     	return ((byte)((int)(sum)));
     }
+    
     public static int[] polyDiv(int[] rem,int[] a) 
     {
         int ctr = 0;
@@ -1344,18 +1217,12 @@ public class AES
         int[] temp2 = new int[9];
         while(true)
         {
-        /*System.out.println("The value of b is");
-        for(int k=0;k<9;k++)
-        {
-            System.out.print(b[k]);
-        }
-        System.out.println();*/
         int i=0;
     	for(i=0;i<9;i++)
     	{
     		if(rem[i] == 1)
     		{
-    			break;
+                    break;
     		}
     	}
     	int j=0;
@@ -1363,82 +1230,51 @@ public class AES
     	{
     		if(a[j]==1)
     		{
-    			break;
+                    break;
     		}
     	}
     	tempmultfactor = i-j;
-        //System.out.println("The tempmultfactor is "+tempmultfactor);
         if(tempmultfactor<0)
         {
             break;
         }
         else
         {
-        if(tempmultfactor>0)
-        {
-            multfactor = tempmultfactor;
-            for(int k=0;k<9;k++)     
+            if(tempmultfactor>0)
             {
+                multfactor = tempmultfactor;
+                for(int k=0;k<9;k++)     
+                {
                     if(rem[k] == 1)
                     {
-                            rem[k-multfactor] = 1;
-                            rem[k] = 0;
+                        rem[k-multfactor] = 1;
+                        rem[k] = 0;
                     }
+                }
             }
-        }
-        if(tempmultfactor == 0)
-        {
-            multfactor = 0;
-        }
-        /*System.out.println("The multiplied array is");
-        for(int k=0;k<9;k++)
-        {
-            System.out.print(rem[k]);
-        }
-        System.out.println();*/
-    	for(int k=0;k<9;k++)
-    	{
-    		if(a[k] != rem[k])
-    		{
-    			rem[k] = 1;
-    		}
-    		else
-    		{
-    			rem[k] = 0;
-    		}	
-    	}
-        /*System.out.println("The divided array is");
-        for(int k=0;k<9;k++)
-        {
-            System.out.print(rem[k]);
-        }
-        System.out.println();*/
-        for(int l=0;l<9;l++)
-        {
-            a[l]=rem[l];
-            rem[l] = b[l];
-        }
-        /*System.out.println("The new value of a is");
-        for(int k=0;k<9;k++)
-        {
-            System.out.print(a[k]);
-        }
-        System.out.println();
-        System.out.println("The new value of rem is");
-        for(int k=0;k<9;k++)
-        {
-            System.out.print(rem[k]);
-        }
-        System.out.println();*/
+            if(tempmultfactor == 0)
+            {
+                multfactor = 0;
+            }
+            for(int k=0;k<9;k++)
+            {
+                if(a[k] != rem[k])
+                {
+                    rem[k] = 1;
+                }
+                else
+                {
+                    rem[k] = 0;
+                }	
+            }
+            for(int l=0;l<9;l++)
+            {
+                a[l]=rem[l];
+                rem[l] = b[l];
+            }
         }
         ind[ctr++] = 8 - multfactor;
         }
-        /*System.out.println("The index array is");
-        for(int k=0;k<9;k++)
-        {
-            System.out.print(ind[k]);
-        }
-        System.out.println();*/
         for(int k=0;k<9;k++)
         {
             if(ind[k] != 10)
@@ -1446,14 +1282,9 @@ public class AES
                 fact[ind[k]] = 1;
             }
         }
-        /*System.out.println("The fact array is");
-        for(int k=0;k<9;k++)
-        {
-            System.out.print(fact[k]);
-        }
-        System.out.println();*/
     	return a;	
-	}
+    }
+    
     public static int[] binaryAdd(int[] a, int[] b)
     {
     	int carry =0;
@@ -1464,52 +1295,52 @@ public class AES
         }
     	for(int i=8;i>=0;i--)
     	{
-    		if(carry==0)
-    		{
-	    		if(a[i] == 0 && b[i] == 0)
-	    		{
-	    			sum[i] = 0; 
-	    		}
-	    		if((a[i] == 0 && b[i] == 1) || (a[i] == 1 && b[i] == 0))
-	    		{
-	    			sum[i] = 1;
-	    		}
-	    		if(a[i] == 1 && b[i] == 1)
-	    		{
-	    			carry = 1;
-	    			sum[i] = 0;
-	    		}
-    		}
-                else if(carry==1)
-    		{
-    			if(a[i] == 0 && b[i] == 0)
-	    		{
-	    			sum[i] = 1;
-	    			carry = 0;
-	    		}
-	    		if((a[i] == 0 && b[i] == 1) || (a[i] == 1 && b[i] == 0))
-	    		{
-	    			carry = 1;
-	    			sum[i] = 0;
-	    		}
-	    		if(a[i] == 1 && b[i] == 1)
-	    		{
-	    			carry = 1;
-	    			sum[i] = 1;
-	    		}
-    		}
+            if(carry==0)
+            {
+                    if(a[i] == 0 && b[i] == 0)
+                    {
+                        sum[i] = 0; 
+                    }
+                    if((a[i] == 0 && b[i] == 1) || (a[i] == 1 && b[i] == 0))
+                    {
+                        sum[i] = 1;
+                    }
+                    if(a[i] == 1 && b[i] == 1)
+                    {
+                        carry = 1;
+                        sum[i] = 0;
+                    }
+            }
+            else if(carry==1)
+            {
+                    if(a[i] == 0 && b[i] == 0)
+                    {
+                        sum[i] = 1;
+                        carry = 0;
+                    }
+                    if((a[i] == 0 && b[i] == 1) || (a[i] == 1 && b[i] == 0))
+                    {
+                        carry = 1;
+                        sum[i] = 0;
+                    }
+                    if(a[i] == 1 && b[i] == 1)
+                    {
+                        carry = 1;
+                        sum[i] = 1;
+                    }
+            }
     	}
-    	
     	return sum;
     }
-	public static int[] decToBin(int val)
+    
+    public static int[] decToBin(int val)
     {
     	int a[] = new int[9];
     	StringBuffer s = new StringBuffer("");
     	while (val>0)
     	{
-    		s.append(val%2);
-    		val = val/2;
+            s.append(val%2);
+            val = val/2;
     	}
         while(s.length()!=9)
         {
@@ -1523,32 +1354,4 @@ public class AES
     	}
     	return a;
     }
-    
-	/*
-	//Skeleton to perform the encryption
-	//implement all the methods and then call cipher function to perform AES 
-	
-		public void cipher(byte[] input, byte[] output)
-	{
-		private int wordCount = 0;
-		byte[][] state = new byte[][]; //the state array
-		AddRoundKey(state);
-		for(int round=1; round<no_of_rounds; round++)
-		{
-			Print.printArray("Start round: " + round + ":" + state);
-			SubBytes(state); //Sbox Substitution
-			ShiftRows(state);  //mixing up of rows
-			MixColumns(state);  //complicated mix of columns
-			AddRoundKey(state);  //xor with expanded key
-		}
-		Print.printArray("Start Round" + no_of_rounds + ":" + state);
-		SubBytes(state);  //Sbox Substitution
-		ShiftRows(state);  //mixing up of rows
-		AddRoundKey(state);  //xor with expanded key
-	}*/
-	
-
-
-	
-	
 }
