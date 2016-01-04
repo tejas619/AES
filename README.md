@@ -1,1 +1,3 @@
-# AES
+Advanced Encryption Standard (AES) implemenation in Java. We have implemeneted this encryption standard without using any java library function in order to have an in-depth understanding about how the encrryption works in each round of encryption and decryption as well.
+This code according to the books is in-efficient because calculating the S-Box value of an input element, takes more time than looking up the same value in look-up tables. Even though our code has advantages like, it is not vulnerable to Cache-timing attacks.
+Please review our code and in-case you happen to find any modification to be done, or something is improper or any other advise, do let us know.
